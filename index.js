@@ -7,11 +7,13 @@
 const express = require("express");
 const { engine: hbs } = require("express-handlebars");
 const session = require("express-session");
-const busboy = require("connect-busboy");
 const flash = require("connect-flash");
 const querystring = require("querystring");
 const assets = require("./assets");
 const archiver = require("archiver");
+const OSS = require('ali-oss');
+const multer = require('multer');
+const upload = multer({ dest: 'uploads/' });
 
 const notp = require("notp");
 const base32 = require("thirty-two");
@@ -89,12 +91,9 @@ app.use(
   })
 );
 app.use(flash());
-app.use(busboy());
-app.use(
-  express.urlencoded({
-    extended: false,
-  })
-);
+app.use(express.urlencoded({
+  extended: false
+}));
 // AUTH
 
 const KEY = process.env.KEY
@@ -205,74 +204,46 @@ app.all("/*", (req, res, next) => {
     });
 });
 
-app.post("/*@upload", (req, res) => {
+app.post("/*@upload", upload.single('file'), (req, res) => {
   res.filename = req.params[0];
 
-  let buff = null;
-  let saveas = null;
-  req.busboy.on("file", (key, stream, filename) => {
-    if (key == "file") {
-      let buffs = [];
-      stream.on("data", (d) => {
-        buffs.push(d);
-      });
-      stream.on("end", () => {
-        buff = Buffer.concat(buffs);
-        buffs = null;
-      });
-    }
-  });
-  req.busboy.on("field", (key, value) => {
-    if (key == "saveas") {
-      saveas = value;
-    }
-  });
-  req.busboy.on("finish", () => {
-    if (!buff || !saveas) {
-      return res.status(400).end();
-    }
-    let fileExists = new Promise((resolve, reject) => {
-      // check if file exists
-      fs.stat(relative(res.filename, saveas), (err, stats) => {
-        if (err) {
-          return reject(err);
-        }
-        return resolve(stats);
-      });
-    });
+  if (!req.file || !req.body.saveas) {
+    return res.status(400).end();
+  }
 
-    fileExists
-      .then((stats) => {
-        console.warn("file exists, cannot overwrite");
-        req.flash("error", "File exists, cannot overwrite. ");
-        res.redirect("back");
-      })
-      .catch((err) => {
-        const saveName = relative(res.filename, saveas);
-        console.log("saving file to " + saveName);
-        let save = fs.createWriteStream(saveName);
-        save.on("close", () => {
-          if (res.headersSent) {
-            return;
-          }
-          if (buff.length === 0) {
-            req.flash("success", "File saved. Warning: empty file.");
-          } else {
-            buff = null;
-            req.flash("success", "File saved. ");
-          }
-          res.redirect("back");
-        });
-        save.on("error", (err) => {
+  let fileExists = new Promise((resolve, reject) => {
+    fs.stat(relative(res.filename, req.body.saveas), (err, stats) => {
+      if (err) {
+        return reject(err);
+      }
+      return resolve(stats);
+    });
+  });
+
+  fileExists
+    .then((stats) => {
+      console.warn("file exists, cannot overwrite");
+      req.flash("error", "File exists, cannot overwrite. ");
+      res.redirect("back");
+    })
+    .catch((err) => {
+      const saveName = relative(res.filename, req.body.saveas);
+      console.log("saving file to " + saveName);
+      fs.rename(req.file.path, saveName, (err) => {
+        if (err) {
           console.warn(err);
           req.flash("error", err.toString());
           res.redirect("back");
-        });
-        save.write(buff);
-        save.end();
+          return;
+        }
+        if (req.file.size === 0) {
+          req.flash("success", "File saved. Warning: empty file.");
+        } else {
+          req.flash("success", "File saved. ");
+        }
+        res.redirect("back");
       });
-  });
-  req.pipe(req.busboy);
+    });
 });
 
 app.post("/*@mkdir", (req, res) => {
@@ -691,6 +662,40 @@ app.get("/*", (req, res) => {
       dotfiles: "allow",
     });
   }
+});
+
+app.post('/@ossupload', upload.none(), async (req, res) => {
+    try {
+        console.log('Received request body:', req.body);
+        const { bucket, endpoint, path: ossPath, files } = req.body;
+        console.log('Files to upload:', files);
+        
+        // 创建 OSS 客户端
+        const client = new OSS({
+            endpoint: endpoint,
+            accessKeyId: process.env.OSS_ACCESS_KEY_ID,
+            accessKeySecret: process.env.OSS_ACCESS_KEY_SECRET,
+            bucket: bucket
+        });
+
+        const fileList = JSON.parse(files);
+        for (const file of fileList) {
+            const filePath = path.join(process.cwd(), file);
+            const fileContent = await fs.promises.readFile(filePath);
+            const ossFilePath = path.join(ossPath, path.basename(file));
+            
+            // 上传到 OSS
+            await client.put(ossFilePath.replace(/\\/g, '/'), fileContent);
+        }
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('OSS upload error:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: error.message 
+        });
+    }
 });
 
 console.log(`Listening on port ${port}`);

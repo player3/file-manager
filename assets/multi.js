@@ -49,7 +49,25 @@ const updateSelected = () => {
   });
 
   $select.trigger("change-files", [files]);
+  
+  // 更新按钮状态
+  const ossUploadBtn = document.querySelector('[data-bs-target="#ossUpload"]');
+  if (ossUploadBtn) {
+    ossUploadBtn.disabled = files.length === 0;
+  }
 };
 
 $select.on("change", updateSelected);
 updateSelected();
+
+function updateButtons() {
+  // ... 现有代码 ...
+  
+  // OSS上传按钮
+  const ossUploadBtn = document.querySelector('[data-bs-target="#ossUpload"]');
+  if (ossUploadBtn) {
+    ossUploadBtn.disabled = selectedFiles.length === 0;
+  }
+  
+  // ... 现有代码 ...
+}

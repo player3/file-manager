@@ -1,0 +1,36 @@
+<div id="ossUpload" class="modal fade" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form action="/@ossupload" method="post" enctype="multipart/form-data">
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title">上传到阿里云 OSS</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label" for="oss-bucket">Bucket 名称</label>
+                        <input type="text" class="form-control" id="oss-bucket" name="bucket" value="ballrec" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="oss-endpoint">Endpoint</label>
+                        <input type="text" class="form-control" id="oss-endpoint" name="endpoint" value="http://oss-cn-beijing.aliyuncs.com" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="oss-path">OSS 路径</label>
+                        <input type="text" class="form-control" id="oss-path" name="path" required>
+                    </div>
+                    <div class="mb-3">
+                        <p>选中的文件:</p>
+                        <ul class="list-group multi-files">
+                        </ul>
+                        <input type="hidden" name="files" value="" class="multi-files-value" />
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">上传</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div> 
