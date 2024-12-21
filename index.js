@@ -4,6 +4,9 @@
 /* jshint node: true */
 "use strict";
 
+const DEFAULT_ROOT = process.env.FILE_ROOT || '/media';
+process.chdir(DEFAULT_ROOT);
+
 const express = require("express");
 const { engine: hbs } = require("express-handlebars");
 const session = require("express-session");
